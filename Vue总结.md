@@ -205,4 +205,7 @@
         * 关联 Observer 和 Compile 能够订阅并收到属性变化的通知，执行指令绑定的响应操作，更新视图。Updata() 是它自身的一个方法，用于在 Compile 中绑定回调，更新视图
 
 ## 24. v-model 是什么？有什么用呢？
-* 一则语法糖，相当于
+* 一则语法糖，相当于 v-bind:value = "xx" 和 @input，意思是绑定了一个 value 属性的值，子组件可对 value 属性监听，通过 $emit('input', xxx) 的方式给父组件通讯
+
+## 25. axios 是什么？怎么使用它？怎么解决跨域的问题？
+* axios 的是一种异步请求，用法和 ajax 类似，请求中包括 get、post、put、patch、delete 等五种请求方式，解决跨域可以在请求头中添加 Access-Control-Allow-Origin，也可以在 index.js 文件中更改 proxyTable 配置等解决跨域问题
