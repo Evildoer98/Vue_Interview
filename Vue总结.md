@@ -137,7 +137,7 @@
 父 beforeUpdate -> 父 updated
 
 4. 销毁过程
-父beforeDestroy->子beforeDestroy->子destroyed->父destroyed
+父 beforeDestroy -> 子beforeDestroy -> 子destroyed -> 父destroyed
 
 # 18. Vue2.x 组件通信方式有那些
 1. 父子组件通信
