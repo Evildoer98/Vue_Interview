@@ -79,9 +79,41 @@
             }
         ```
 
+# Vue 组件间通信有哪几种方式
+1. props / $emit 适用于 父子组件通信
+2. ref 与 $parent / $children 适用 父子组件通信
+    * ref：如果在普通函数的 DOM 元素上使用，引用指向的就是 DOM 元素；如果用在子组件上，引用就指向组件实例
+    * $parent / $children：访问父/子实例
+3. EventBus（$emit/ $on）适用于 父子、隔代、兄弟组件通信
+    * 通过一个空的 Vue 实例作为中央事件总线（事件中心），用它来触发事件和监听事件，从而实现任何组件间的通信，包括父子、隔代、兄弟组件
+4. $attrs / $listeners 适用于隔代组件通信
+
 # computed 和 watch 的区别和运用的场景？
 * computed: 是计算属性，依赖其它属性值，并且 computed 的值有缓存，只有它依赖的属性值发生改变，下一次获取 computed 的值时才会重新计算 computed 的值
 * watch：更多的是观察的作用，类似于某些数据的监听回调，每当监听的数据变化时都会执行回调进行后续操作
 * 运用场景：
     1. 当需要进行数值计算，并且依赖于其它数据时，应该使用 computed，因为可以利用 computed 的缓存特性，避免每次获取值时，都要重新计算
     2. 当需要在数据变化时执行异步或开销较大的操作时，应该使用 watch，使用 watch 选项允许执行异步操作（访问一个 API），限制执行该操作的频率，并在得到最终结果前，设置中间状态。
+
+# 直接给一个数组项赋值，Vue 能检测到变化吗？
+* 由于 JavaScript 的限制，Vue 不能检测到以下数组的变动：
+    1. 当利用索引直接设置一个数组项时
+        eg：vm.items[indexOfItem] = newValue
+    2. 当修改数组的长度时
+        eg：vm.items.length = newLength
+* 解决第一个问题，Vue 提供了一下操作方法：
+    ```javascript
+        // Vue.set
+        Vue.set(vm.items, indexOfItem, newValue)
+        // vm.$set，Vue.set 的一个别名
+        vm.$set(vm.items, indexOfItem, newValue)
+        // Array.prototype.splice
+        vm.items.splice(indexOfItem, 1, newValue)
+    ```
+* 解决第二个问题，Vue 提供了一下操作方法
+    ```javascript
+        // Array.prototype.splice
+        vm.items.splice(newLength)
+    ```
+
+#
