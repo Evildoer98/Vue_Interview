@@ -87,7 +87,21 @@
 3. EventBus（$emit/ $on）适用于 父子、隔代、兄弟组件通信
     * 通过一个空的 Vue 实例作为中央事件总线（事件中心），用它来触发事件和监听事件，从而实现任何组件间的通信，包括父子、隔代、兄弟组件
 4. $attrs / $listeners 适用于隔代组件通信
-
+    * $attrs: 包括了父作用域不被 prop 所识别（且获取）的特性绑定（class 和 style 除外）。当一个组件没有声明任何 prop 时，这里会包括所有父作用域的绑定（class 和 style 除外），并且可以通过 v-bind="$attrs" 传入内部组件。通常配合 inheritAttrs 选项一起使用
+    * $listeners：包含了父作用域中的（不含 .native 修饰器的）v-on 事件监听器。它可以通过 v-on="$listeners" 传入内部组件
+5. provide / inject 适用于隔代组件通信
+    * 祖先组件中通过 provider 来提供变量，然后在子孙组件中提供 inject 来注入变量。provide / inject API 主要解决了跨级组件间的通信问题，不过它的使用场景，主要是子组件获取上级组件的状态，跨级组件间建立了一种主动提供与依赖注入的关系
+6. Vuex 适用于父子、隔代、兄弟组件通信
+    * Vuex 是一个专门为 Vue.js 应用程序开发的状态管理模式。每一个 Vuex 的应用的核心就是 store（仓库）。"store" 基本上就是一个容器，它包含着应用中大部分的状态（state）
+        1. Vuex 的状态存储是响应式的。当 Vue 组件从 store 中读取状态的时候，若 store 中的状态发生变化，那么相应的组件也会相应地得到高效更新
+        2. 改变 store 中的状态的唯一途径就是显式地提交（commit）mutation。使得方便追踪每一个状态的变化
+    * 主要包括以下模块：
+        1. State：定义了应用状态的数据结构，可以在这里设置默认的初始状态
+        2. Getter：允许组件从 Store 中获取数据，mapGetters 辅助函数仅仅是将 store 中的 getter 映射到局部计算属性
+        3. Mutation：是唯一更改 store 中状态的方法，且必须是同步函数
+        4. Action：用于提交 mutation，而不是直接变更状态，可以包含任意异步操作
+        5. Module：允许将单一的 store 拆分为多个 store 且同时保存在单一的状态树中
+        
 # computed 和 watch 的区别和运用的场景？
 * computed: 是计算属性，依赖其它属性值，并且 computed 的值有缓存，只有它依赖的属性值发生改变，下一次获取 computed 的值时才会重新计算 computed 的值
 * watch：更多的是观察的作用，类似于某些数据的监听回调，每当监听的数据变化时都会执行回调进行后续操作
@@ -216,3 +230,32 @@
     * 如果组件中 data 选项是一个函数，那么每个实例可以维护一份被返回对象的独立的拷贝，组件实例之间的 data 属性值不会相互影响
     * new Vue 的实例，是不会被复用的，因此不存在引用对象的问题
 
+# v-model 的原理
+* vue 项目中主要使用 v-model 指令在表单 input、textarea、select 等元素上创建双向数据绑定，v-model 在内部为不同的输入元素并抛出不同的事件
+    1. text 和 textarea 元素使用 value 属性和 input 事件
+    2. checkbox 和 radio 使用 checked 属性和 change 事件
+    3. select 字段将 value 作为 prop 并将 change 作为事件
+* 以 input 表单元素为例：
+    ```javascript
+        <input v-model="something">
+        // 相当于
+        <input v-bind:value="something" v-on:click="something=$event.target.value">
+    ```
+* 如果在自定义组件中，v-model 默认会利用名为 value 的 prop 和名为 input 的事件
+    ```javascript
+        // 父组件
+        <ModelChild v-model="message"></ModelChild>
+        // 子组件
+        <div>{{value}}</div>
+
+        props: {
+            value: String
+        },
+        methods: {
+            test(){
+                this.$emit('input', 'Evildoer98')
+            }
+        }
+    ```
+
+# 
