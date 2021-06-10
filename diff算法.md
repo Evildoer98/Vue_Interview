@@ -33,7 +33,7 @@
     ```
 # 4. diff 流程图
 * 当数据发生改变时，set 方法会让调用 Dep.notify 通知所有订阅者 Watcher，订阅者就会调用 patch 给真实的 DOM 打补丁，更新相应的视图
-![avatar](./src/image/diff流程图.webp)
+![diff流程图](./src/image/diff流程图.webp)
 
 # 5. 分析
 ## 1. patch

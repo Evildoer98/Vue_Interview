@@ -116,4 +116,103 @@
         vm.items.splice(newLength)
     ```
 
-#
+# 生命周期
+1. Vue 实例有一个完整的生命周期
+    ![Vue生命周期](./src/image/lifecycle.png)
+    * 开始创建、初始化数据、编译模板、挂载 DOM -> 渲染、更新 -> 渲染、卸载等一系列操作
+2. 各个生命周期的作用
+    1. beforeCreate()
+        * 是 new Vue() 之后触发的第一个钩子，在当前阶段 data、methods、computed 以及 watch 上的数据和方法都不能被访问
+    2. Create()
+        * 在实例创建完成之后发生，在当前阶段已经完成了数据观测，也就是可以使用数据，更改数据，在这里更改数据不会触发 updated 函数。可以做一些数据的获取，在当前阶段无法与 DOM 进行交互，如果要，则可以通过 vm.$nextTick 来访问DOM
+    3. beforeMounted
+        * 发生在挂载之前，在这之前 template 模板已导入渲染函数编译，而当前阶段虚拟 Dom 创建完成，即将开始渲染，在此时可以更改数据，不会触发 Updated
+    4. Mounted
+        * 在挂载完成后发生，在当前阶段，真实的 Dom 挂载完毕，数据完成双向绑定，可以访问 Dom 节点，使用 $refs 属性对 Dom 进行操作
+    5. beforeUpdate
+        * 发生在更新之前，也就是响应式数据发生更新，虚拟 Dom 重新渲染之前被触发，可以在当前阶段更改数据，不会造成重污染
+    6. Updated
+        * 发生在更新完成之后，当前组件 Dom 已经更新完成。注意在此阶段避免更改数据，因为这可能导致无限循环的更新
+    7. beforeDestroy
+        * 发生在销毁实例之前，在当前阶段实例完全可以被使用，我们可以在此阶段进行收尾工作，例如清除定时器
+    8. Destroyed
+        * 发生在实例销毁之后，这个时候只剩下了dom空壳，组件已经被拆解，数据绑定被卸载，监听被移除，子实例也统统被销毁
+
+# Vue 的父组件和子组件生命周期钩子函数执行顺序（4类）
+1. 加载渲染过程
+    * 父 beforeCreate -> 父 Created -> 父 beforeMount -> 子 beforeCreate -> 子 Created -> 子 beforeMount -> 子 mounted -> 父 mounted
+2. 子组件更新过程
+    父 beforeUpdate -> 子 beforeUpdate -> 子 updated -> 父 updated
+3. 父组件更新过程
+    父 beforeUpdate -> 父 updated
+4. 销毁过程
+    父 beforeDestroy -> 子 beforeDestroy -> 子 destroyed -> 父 destroyed
+
+# 在哪个生命周期内调用异步请求
+* 可以在钩子函数 created、beforeMount、mounted 中调用，因为在这三个钩子函数中，data 已经创建，可以将服务端返回的数据进行赋值。
+* 在 created 钩子函数中调用异步请求的好处：
+    1. 能更快获取到服务端数据，减少页面 loading 时间
+    2. ssr 不支持 beforeMount、mounted 钩子函数，所以放在 created 中有助于一致性
+
+# 在什么阶段才能访问操作 DOM ？
+* 在钩子函数 mounted 被调用前，Vue 已经将编译好的模板挂载到页面上，所以在 mounted 中可以访问操作 DOM。
+
+# 父组件可以监听到子组件的生命周期吗？
+* eg：父组件 parent 和 子组件 child，如果父组件监听到子组件挂载 mounted 就做一些逻辑处理
+    ```javascript
+        // parent.vue
+        <child @mounted = "dosomething" />
+
+        // child.vue
+        mounted() {
+            this.$emit("mounted")
+        }
+    ```
+    * 以上需要手动通过 $emit 触发父组件的事件
+* eg：在父组件引用子组件时通过 @hook 来监听即可
+    ```javascript
+        // parent.vue
+        <child @hook:mounted = "dosomething"/>
+        dosomething () {
+            console.log('父组件监听到 mounted 钩子函数')
+        }
+
+        // child.vue
+        mounted () {
+            console.log('子组件触发 mounted 钩子函数')
+        }
+
+        // 输出顺序：
+        // 子组件触发 mounted 钩子函数
+        // 父组件监听到 mounted 钩子函数
+    ```
+    * @hook 方法不仅仅可以监听 mounted，其它生命周期事件也可以监听，例如：created、updated 等都可以被监听
+
+# keep-alive
+* keep-alive 是 Vue 内置的一个组件，可以使被包含的组件保留状态，避免重新渲染
+    1. 一般结合路由和动态组件一起使用，用于缓存组件
+    2. 提供 include 和 exclude 属性，两者都支持字符串或正则表达式，include 表示只有名称匹配的组件会被缓存，exclude 表示任何名称匹配的组件都不会被缓存，其中 exclude 的优先级比 include 高
+    3. 对应两个钩子函数 activated 和 deactivated，当组件被激活时，触发钩子函数 activated；当组件被移除时，触发钩子函数 deactivated
+
+# 组件 data 为什么是一个函数
+```javascript
+    // data
+    data() {
+        return {
+            message: '子组件',
+            childrenName: this.name
+        }
+    }
+    // new Vue
+    new Vue({
+        el: '#app',
+        router,
+        template: '<App/>',
+        components: {App}
+    })
+```
+* 因为组件是用来复用的，且 JS 里对象是引用关系
+    * 如果组件中 data 是一个对象，那么这样作用域没有隔离，子组件中的 data 属性值会相互影响
+    * 如果组件中 data 选项是一个函数，那么每个实例可以维护一份被返回对象的独立的拷贝，组件实例之间的 data 属性值不会相互影响
+    * new Vue 的实例，是不会被复用的，因此不存在引用对象的问题
+
