@@ -407,4 +407,123 @@
 ## Object.defineProperty
 * 兼容性好，而与 Proxy 的存在浏览器兼容性问题，无法使用 polyfill 磨平
 
-# 
+# Vue 解决用 vm.$set() 解决对象新增属性不能响应的问题？
+* 受 JavaScript 的限制，Vue 无法检测到对象属性的添加或删除。由于 Vue 会在初始化实例时对属性执行 getter/setter 转换，所以属性必须在 data 对象上存在才能让 Vue 转化为响应式的。但是 Vue 提供了 Vue.set(object, propertyName) / vm.$set(object, propertyName, value) 来实现为对象添加响应式属性
+    ```javascript
+        export function set (target: Array<any> | Object, key: any, val: any): any {
+            // target 为数组
+            if (Array.isArray(target) && isValidArrayIndex(key)) {
+                // 修改数组的长度，避免索引 > 数组长度 导致 splice() 执行有误
+                target.length = Math.max(target.length, key)
+                // 利用数组的 splice 变异方法触发响应式
+                target.splice(key, 1, val)
+                return val
+            }
+            // key 已经存在，直接修改属性值
+            if (key in target && !(key in Object.prototype)) {
+                target[key] = val
+                return val
+            }
+            const ob = (target: any).__ob__
+            // target 本身就不是响应式数据，直接赋值
+            if (!ob) {
+                target[key] = val
+                return val
+            }
+            // 对属性进行响应式处理
+            defineReactive(ob.value, key, val)
+            ob.dep.notify()
+            return val
+        }
+    ```
+* vm.$set 的实现原理
+    1. 如果目标是数组，直接使用数组的 splice 方法触发响应式
+    2. 如果目标是对象，会先判断属性是否存在、对象是否是响应式，最终如果要对属性进行响应式处理，则是通过调用 defineReactive() 方法进行响应式处理（defineReactive 方法就是 Vue 在初始化对象时，给对象属性采用 Object.defineProperty 动态添加 getter 和 setter 的功能所调用的方法）
+
+# 虚拟 DOM 的优缺点
+* 优点
+    1. 保证性能下限：框架的虚拟 DOM 需要适配任何上层 API 可能产生的操作，它的一些 DOM 操作的实现必须是普适的，所以它的性能并不是最优的；但是比起直接操作 DOM 好，因此框架的虚拟 DOM 至少可以保证在不需要手动优化的情况下，依然可以提供很好的性能，保证性能下限
+    2. 无需手动操作 DOM：不用手动去操作 DOM，写好 ViewModel 的代码逻辑，框架会根据虚拟 DOM 和数据双向绑定，在可预期的方式下更新视图，提高开发效率
+    3. 跨平台：虚拟 DOM 本质上是 JavaScript 对象，而 DOM 与平台强相关，相比之下虚拟 DOM 可以进行更方便地跨平台操作， 例如服务器渲染、week 开发等
+* 缺点：
+    * 无法进行极致优化：虽然虚拟 DOM + 合理的优化，足以应对绝大部分应用的性能需求，但在一些性能要求极高的应用中虚拟 DOM 无法进行针对性的极致优化
+
+# 虚拟 DOM 实现原理
+1. 用 JavaScript 对象模拟真实 DOM 树，对真实 DOM 进行抽象
+2. diff 算法 ———— 比较两颗虚拟 DOM 树的差异
+3. patch 算法 ———— 将两个虚拟 DOM 对象的差异应用到真正的 DOM 树
+
+# Vue 中 key 的作用
+* key 是为 Vue 中 vnode 的唯一标记，通过这个 key，在进行 diff 操作会更加准确和快速。
+    * 更准确：因为带 key 就不是就地复用了，在 sameNode 函数 a.key === b.key 对比中可以避免就地复用的情况，所以会更加准确
+    * 更快速：利用 key 的唯一性生成 map 对象来获取对象节点，比遍历方式更快
+    ```javascript
+        function createKeyToOldIdx (children, beginIdx, endIdx) {
+            let i, key
+            const map = {}
+            for (i = beginIdx; i <= endIdx; ++i) {
+                key = children[i].key
+                if (isDef(key)) {
+                    map[key] = i
+                }
+            }
+            return map
+        }
+    ```
+
+# Vue3.0
+## 1. 检测机制的改变
+* 3.0 基于代理 Proxy 的 Observer 实现，提供全语言覆盖的反应性追踪
+    * 消除了 Vue2 中基于 Object.defineProperty 的实现的限制：
+        1. 只能检测属性，不能检测对象
+        2. 检测属性的添加和删除
+        3. 检测数组索引和长度的变更
+        4. 支持 Map、Set、WeakMap 和 WeakSet
+    * 新的 Observer 提供的新特性：
+        1. 用于创建 observable 的公开 API，为中小规模场景提供了简单轻量级的跨组件状态管理解决方案
+        2. 默认采用惰性观察。在 2.x 中，不管反应式数据有多大，都会在启动时被观察到。如果数据集很大，则可能在应用启动时带来明显的开销。但是在 3.x 中，只观察用于渲染应用程序最初可见部分的数据
+        3. 更准确的变更通知。在 2.x 中，通过 Vue.set 强制添加新属性将导致依赖于该对象的 watcher 收到变更通知。在 3.x 中，只有依赖于特定属性的 watcher 才会收到通知
+        4. 不可变的 observable：可以创建值“不可变”版本（即使是嵌套属性），除非系统在内部暂时将其“解禁”。这个机制可用于冻结 prop 传递或 VueX 状态树以外的变化
+        5. 更好的调试功能：可以使用新的 renderTracked 和 renderTriggered 钩子精确地跟踪组件在什么时候以及为什么重新渲染
+
+## 2. 模板
+* 模板方面没有大的变更，只改了作用域插槽，2.x 的机制导致作用域插槽变了，父组件会重新渲染，而 3.0 把作用域插槽改成了函数的方式，这样只会影响子组件的重新渲染，提升了渲染的性能
+
+## 3. 对象式的组件声明方式
+* Vue2.x 中的组件是通过声明的方式传入一系列 option，和 TypeScript 的结合需要通过一些装饰器的方式来做，虽然能实现功能，但是比较麻烦。Vue3.0 修改了组件的声明方式，改成了类式的写法，这样使得和 TypeScript 的结合变得更容易
+* vue 的源码也改用了 TypeScript 来写。其实当代码的功能复杂之后，必须有一个静态类型系统来做一些辅助管理。现在 vue3.0 也全面改用 TypeScript 来重写了，更是使得对外暴露的 api 更容易结合 TypeScript。静态类型系统对于复杂代码的维护确实很有必要。
+
+## 4. 其他
+* 支持自定义渲染器，从而使得 week 可以通过自定义渲染器的方式来扩展，而不是直接 fork 源码来改的方式
+* 支持 Fragment （多个根节点）和 Protal（在 dom 其他部分渲染组件内容）组件，针对一些特殊的场景做了处理
+* 基于 treeshaking 优化，提供了更多的内置功能
+
+# 对 Vue 项目的优化
+## 代码层面
+1. v-if 和 v-show 区分使用场景
+2. computed 和 watch 区分使用场景
+3. v-for 遍历必须为 item 添加 key，且避免同时使用 v-if
+4. 长列表性能优化
+5. 事件的销毁
+6. 图片资源懒加载
+7. 路由懒加载
+8. 第三方插件的按需引入
+9. 优化无限列表性能
+10. 服务端渲染 SSR 或者 预渲染
+
+## WebPack 层面的优化
+1. WebPack 对图片进行压缩
+2. 减少 ES6 转化为 ES5 的冗余diamante
+3. 提取公共代码
+4. 模板预渲染
+5. 提取组件的 CSS
+6. 优化 SourceMap
+7. 构建结果输出分析
+8. Vue 项目的编译优化
+
+## 基础的 Web 技术的优化
+1. 开启 gzip 压缩 
+2. 浏览器缓存
+3. CDN 的使用
+4. 使用 Chrome Performance 查找性能瓶颈
+
