@@ -266,4 +266,143 @@
     2. 更快的内容到达时间（首屏加载更快）：SPA 会等待所有 Vue 编译后的 js 文件都下载完成后，才开始进行页面的渲染，文件下载等需要一定的时间等，所以首屏渲染需要一定的时间；SSR 直接由服务器渲染好页面直接返回显示，无需等待下载 js 文件及再去渲染等，所以 SSR 有更快的内容到达时间
 * 缺点：
     1. 更多的开发条件限制：例如服务端渲染只支持 beforeCreate 和 created 两个钩子函数，这会导致一些外部扩展库需要特殊处理，才能在服务端渲染应用程序中运行；并且与可以部署在任何静态文件服务器上的完全静态单页面应用程序 SPA 不同，服务端渲染应用程序，需要处于 Node.js Server 运行环境
-    2. gengduo d 
+    2. 更好的服务器负载：在 Node.js 中渲染完整的应用程序，显然会比仅仅提供静态文件的 server 更加大量占用 CPU 资源（CPU-intensive - CPU密集）。如果在高流量环境（high traffic）下使用，准备响应的服务器负载，并明智地采用缓存策略
+
+# Vue-router 路由模式
+* vue-router 有 3 种路由模式：hash、history、abstract
+    ```javascript
+        switch (mode) {
+            case 'history': 
+                this.history = new HTML5History(this, options.base)
+                break
+            case 'hash':
+                this.history = new HashHistory(this, options.base, this.fallback)
+                break
+            case 'abstract'
+                this.history = new AbstractHistory(this, options.base)
+                break
+            default:
+                if (process.env.NODE_ENV !== 'production') {
+                    assert(false, `invalid mode: ${mode}`)
+                }
+        }
+    ```
+    1. hash：使用 URL hash 值来作路由。支持所有浏览器，包括不支持 HTML5 History Api 的浏览器
+    2. history：依赖 HTML5 History API 和 服务器配置，具体可以查看 HTML5 History 模式
+    3. abstract：支持所有 JavaScript 运行环境，如 Node.js 服务端。如果发现没有浏览器的 API，路由会自动强制进入这个模式
+
+# vue-router 中的 hash 和 history 路由模式的原理
+## hash 模式的实现原理
+* location.hash 的值就是 URL 中 # 后面的内容
+    https://www.word.com#search
+* hash 路由模式实现的主要是基于以下特性
+    1. URL 中 hash 值只是客户端的一种状态，也就是说向服务器端发出请求时，hash 部分不会被发送
+    2. hash 值的改变，都会在浏览器的访问历史中增加一个记录。因此我们能通过浏览器的回退、前进按钮控制 hash 的切换
+    3. 可以通过 a 标签，并设置 href 属性，当用户点击这个标签后，URL 的 hash 值会发生变化；或者使用 JavaScript 来对 location.hash 进行赋值，改变 URL 的hash 值
+    4. 可以使用 hashchange 事件来监听 hash 值的变化，从而对页面进行跳转（渲染）
+## history 模式的实现原理
+* HTML5 提供了 History API 来实现 URL 的变化，其中做最主要的 API 有以下两个：hash.pushState() 和 history.replaceState()。这两个 API 可以在不进行刷新的情况下，操作浏览器的历史记录。唯一不同的是，前者是新增一个历史记录，后者是直接替换历史记录
+    ```javascript
+        window.history.pushState(null, null, path)
+        window.history.replaceState(null, null, path)
+    ```
+* history 路由模式的实现主要基于以下特性
+    1. pushState 和 replaceState 两个 API 来操作实现 URL 的变化
+    2. 可以使用 popstate 事件来监听 url 的变化，从而对页面进行跳转（渲染）
+    3. history.pushState() 或者 history.replaceSatate() 不会出发 popstate 事件，需要手动触发页面跳转（渲染）
+
+# 什么是 MVVM？
+* MVVM 的核心是 ViewModel 层，它就是像是一个中转站（value converter），负责转换 Model 中数据对象来让数据变得更容易管理和使用，该层向上与视图层进行双向数据绑定，向下与 Model 层通过接口请求进行数据交互，起承上启下作用
+![MVVM](./src/image/MVVM.jpg)
+1. View 层
+    * View 是视图层，也就是用户界面。前端主要由 HTML 和 CSS 来构建
+2. Model 层
+    * Model 是指数据模型，泛指后端进行的各种业务逻辑处理和数据操控，对于前端来说就是后端提供的 api 接口
+3. ViewModel 层
+    * ViewModel 是由前端开发人员组织生成和维护的视图数据层。在这一层，前端开发者对后端获取的 Model 数据进行转换处理，做二次封装，以生成符合 View 层使用预期的视图数据模型。
+    * ViewModel 所封装出来的数据模型包括视图的状态和行为两个部分
+    * MVVM 框架实现了双向绑定，这样 ViewModel 的内容会实时展现在 View 层，只需要处理和维护 ViewModel，更新数据视图就会自动得到相应更新。这样 View 层展现的不是 Model 层的数‘’据，而是 ViewModel 的数据，由 ViewModel 负责与 Model 层交互，就完全解耦了 View 层和 Model 层，是前后端分离方案的关键
+* eg 
+    ```javascript
+        // View 层
+        <div id="app">
+            <p> {{message}} </p>
+            <button v-on:click = "showMessage()">Click</button>
+        </div>
+
+        // ViewModel 层
+        var app = new Vue({
+            el: '#app',
+            data: {
+                message: 'Hello Evildoer98'
+            },
+            methods: {
+                showMessage() {
+                    let vm = this
+                    alert(vm.message)
+                }
+            },
+            created() {
+                let vm = this
+                // Ajax 获取 Model 层的数据
+                ajax({
+                    url: '/data/api',
+                    success(res) {
+                        vm.message = res
+                    }
+                })
+            }
+        }) 
+
+        // Model 层
+        {
+            "url": '/data/api',
+            "res": {
+                "success": true,
+                "name": "Evildoer98",
+                "domian": "github/Evildoer98.com"
+            }
+        }
+    ```
+
+# Vue 数据双向绑定
+* Vue 数据双向绑定主要是指：数据变化更新视图，视图变化更新数据
+    ![Vue数据双向绑定](./src/image/Vue数据双向绑定.jpg)
+    1. 输入框内容变化时，Data 中的数据同步变化，即 View => Data 的变化
+    2. Data 中的数据变化时，文本节点的内容同步变化，即 Data => View 的变化
+    * 其中，View 变化更新 Data，可以通过事件监听的方式来实现，所以 Vue 的数据双向绑定的工作主要是如何根据 Data 变化更新 View
+* Vue 主要通过以下四个步骤来实现数据双向绑定的
+    ![Vue双向绑定原理图](./src/image/Vue双向绑定原理图.jpg)
+    1. 实现一个监听器 Observer：对数据对象进行遍历，包括子属性对象的属性，利用 Object.defineProperty() 对属性都加上 setter 和 getter。当给这个对象的某个值赋值，就会触发 setter，那么就能监听到数据变化
+    2. 实现一个解析器 Compile：解析 Vue 模板指令，将模板中的变量都替换成数据，然后初始化渲染页面视图，并对每个指令对应的节点绑定更新函数，添加监听数据的订阅者，一旦数据有变动，收到通知，调用更新函数进行数据更新
+    3. 实现一个订阅者 Watcher：Watcher 订阅者是 Observer 和 Compile 之间通信的桥梁，主要的任务是订阅 Observer 中的属性值变化的信息，当收到属性值变化的消息时，触发解析器 Compile 中对应的更新函数
+    4. 订阅器 Dep：订阅器采用发布-订阅 设计模式，用来收集订阅者 Watcher，对监听器 Observer 和 订阅者 Watcher 进行统一管理
+    
+# Vue 是如何实现对象和数组的监听
+* Object.defineProperty() 只能对属性进行数据劫持，不能对整个对象进行劫持，同理无法对数组进行劫持，但是在 Vue 中是能检测到对象和数组的变化
+    ```javascript
+        /**
+         * Observe a list of Array items
+         */
+         observeArray (items: Array<any>) {
+             for (let i = 0, l = items.length; i < l; i++) {
+                 observe(items[i]) // observe 功能为检测数据的变化
+             }
+         }
+
+         /**
+          * 对属性进行递归遍历
+          */
+          let childOb = !shallow && observe(val) // observe 功能为检测数据的变化
+    ```
+* 通过 Vue 部分源码可知， Vue 是通过遍历数组和递归对象，从而达到利用 Object.defineProperty() 也能对对象和数组（部分方法的操作）进行监听
+
+# Proxy 与 Object.defineProperty 
+## Proxy
+1. Proxy 可以直接监听对象而非属性
+2. Proxy 可以直接监听数组的变化
+3. Proxy 有多达 13 种拦截方法，不限于 apply、ownKeys、deleteProperty、has 等等是 Object.defineProperty 不具备的
+4. Proxy 返回的是一个新对象，可以只操作新的对象达到目的，而 Object.defineProperty 只能遍历对象属性直接修改
+
+## Object.defineProperty
+* 兼容性好，而与 Proxy 的存在浏览器兼容性问题，无法使用 polyfill 磨平
