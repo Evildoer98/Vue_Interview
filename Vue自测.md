@@ -397,7 +397,7 @@
     ```
 * 通过 Vue 部分源码可知， Vue 是通过遍历数组和递归对象，从而达到利用 Object.defineProperty() 也能对对象和数组（部分方法的操作）进行监听
 
-# Proxy 与 Object.defineProperty 
+# Proxy 与 Object.defineProperty
 ## Proxy
 1. Proxy 可以直接监听对象而非属性
 2. Proxy 可以直接监听数组的变化
